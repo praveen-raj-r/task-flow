@@ -2,7 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Button } from "../ui/button";
 import { ChevronRight } from "lucide-react";
-import logo2 from "/logo2.png";
+
 const HeroSection = () => {
   return (
     <section className="container mx-auto py-20 text-center">
@@ -11,7 +11,7 @@ const HeroSection = () => {
         <span className="flex mx-auto gap-3 sm:gap-4 items-center">
           with
           <Image
-            src={logo2}
+            src={"/logo2.png"}
             alt="task-flow Logo"
             width={400}
             height={80}

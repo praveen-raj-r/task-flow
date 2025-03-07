@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -42,10 +42,9 @@ export default function SprintBoard({ sprints, projectId, orgId }) {
 
   const [filteredIssues, setFilteredIssues] = useState(issues);
 
-  const handleFilterChange = (newFilteredIssues) => {
+  const handleFilterChange = useCallback((newFilteredIssues) => {
     setFilteredIssues(newFilteredIssues);
-  };
-
+  }, []); // ✅ Empty dependency array ensures it's stable
   useEffect(() => {
     if (currentSprint.id) {
       fetchIssues(currentSprint.id);

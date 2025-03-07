@@ -13,31 +13,60 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-const priorities = ["LOW", "MEDIUM", "HIGH", "URGENT"];
+// Priority options
+const priorities = ["LOW", "MEDIUM", "HIGH", "URGENT"] as const;
 
-export default function BoardFilters({ issues, onFilterChange }) {
+// Type definitions
+interface Assignee {
+  id: string;
+  name: string;
+  imageUrl?: string;
+}
+
+interface Issue {
+  id: string;
+  title: string;
+  assignee?: Assignee | null;
+  priority?: (typeof priorities)[number];
+}
+
+interface BoardFiltersProps {
+  issues: Issue[];
+  onFilterChange: (filteredIssues: Issue[]) => void;
+}
+
+export default function BoardFilters({
+  issues,
+  onFilterChange,
+}: BoardFiltersProps) {
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedAssignees, setSelectedAssignees] = useState([]);
+  const [selectedAssignees, setSelectedAssignees] = useState<string[]>([]);
   const [selectedPriority, setSelectedPriority] = useState("");
 
+  // Extract unique assignees (remove null, undefined, and duplicates)
   const assignees = issues
     .map((issue) => issue.assignee)
+    .filter((assignee): assignee is Assignee => !!assignee) // Removes null/undefined
     .filter(
-      (item, index, self) => index === self.findIndex((t) => t.id === item.id)
+      (assignee, index, self) =>
+        index === self.findIndex((t) => t.id === assignee.id) // Ensures uniqueness
     );
 
+  // Filtering logic inside useEffect
   useEffect(() => {
     const filteredIssues = issues.filter(
       (issue) =>
         issue.title.toLowerCase().includes(searchTerm.toLowerCase()) &&
         (selectedAssignees.length === 0 ||
-          selectedAssignees.includes(issue.assignee?.id)) &&
+          selectedAssignees.includes(issue.assignee?.id ?? "")) &&
         (selectedPriority === "" || issue.priority === selectedPriority)
     );
-    onFilterChange(filteredIssues);
-  }, [searchTerm, selectedAssignees, selectedPriority, issues]);
 
-  const toggleAssignee = (assigneeId) => {
+    onFilterChange(filteredIssues);
+  }, [searchTerm, selectedAssignees, selectedPriority, issues, onFilterChange]);
+
+  // Toggle assignee selection
+  const toggleAssignee = (assigneeId: string) => {
     setSelectedAssignees((prev) =>
       prev.includes(assigneeId)
         ? prev.filter((id) => id !== assigneeId)
@@ -45,6 +74,7 @@ export default function BoardFilters({ issues, onFilterChange }) {
     );
   };
 
+  // Clear all filters
   const clearFilters = () => {
     setSearchTerm("");
     setSelectedAssignees([]);
@@ -59,6 +89,7 @@ export default function BoardFilters({ issues, onFilterChange }) {
   return (
     <div className="space-y-4">
       <div className="flex flex-col pr-2 sm:flex-row gap-4 sm:gap-6 mt-6">
+        {/* Search Input */}
         <Input
           className="w-full sm:w-72"
           placeholder="Search issues..."
@@ -66,6 +97,7 @@ export default function BoardFilters({ issues, onFilterChange }) {
           onChange={(e) => setSearchTerm(e.target.value)}
         />
 
+        {/* Assignee Selection */}
         <div className="flex-shrink-0">
           <div className="flex gap-2 flex-wrap">
             {assignees.map((assignee, i) => {
@@ -77,9 +109,7 @@ export default function BoardFilters({ issues, onFilterChange }) {
                   className={`rounded-full ring ${
                     selected ? "ring-blue-600" : "ring-black"
                   } ${i > 0 ? "-ml-6" : ""}`}
-                  style={{
-                    zIndex: i,
-                  }}
+                  style={{ zIndex: i }}
                   onClick={() => toggleAssignee(assignee.id)}
                 >
                   <Avatar className="h-10 w-10">
@@ -92,6 +122,7 @@ export default function BoardFilters({ issues, onFilterChange }) {
           </div>
         </div>
 
+        {/* Priority Dropdown */}
         <Select value={selectedPriority} onValueChange={setSelectedPriority}>
           <SelectTrigger className="w-full sm:w-52">
             <SelectValue placeholder="Select priority" />
@@ -105,6 +136,7 @@ export default function BoardFilters({ issues, onFilterChange }) {
           </SelectContent>
         </Select>
 
+        {/* Clear Filters Button */}
         {isFiltersApplied && (
           <Button
             variant="ghost"

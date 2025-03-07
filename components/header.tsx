@@ -5,6 +5,7 @@ import { PenBox } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { checkUser } from "@/lib/check-user";
+import UserLoading from "./user-loading";
 
 const Header = async () => {
   await checkUser();
@@ -40,6 +41,7 @@ const Header = async () => {
           </SignedIn>
         </div>
       </nav>
+      <UserLoading />
     </header>
   );
 };

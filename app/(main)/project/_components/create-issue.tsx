@@ -1,10 +1,17 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
+import { BarLoader } from "react-spinners";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { X } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -12,109 +19,199 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import MDEditor from "@uiw/react-md-editor";
+import useFetch from "@/hooks/use-fetch";
+import { createIssue } from "@/actions/issues";
+import { getOrganizationUsers } from "@/actions/organization";
+import { issueSchema } from "@/app/lib/validators";
 
-const priorities = ["LOW", "MEDIUM", "HIGH", "URGENT"];
+interface IssueCreationDrawerProps {
+  isOpen: boolean;
+  onClose: () => void;
+  sprintId: string;
+  status: string;
+  projectId: string;
+  onIssueCreated: () => void;
+  orgId: string;
+}
 
-export default function BoardFilters({ issues, onFilterChange }) {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedAssignees, setSelectedAssignees] = useState([]);
-  const [selectedPriority, setSelectedPriority] = useState("");
+export default function IssueCreationDrawer({
+  isOpen,
+  onClose,
+  sprintId,
+  status,
+  projectId,
+  onIssueCreated,
+  orgId,
+}: IssueCreationDrawerProps) {
+  const {
+    loading: createIssueLoading,
+    fn: createIssueFn,
+    error,
+    data: newIssue,
+  } = useFetch(createIssue);
 
-  const assignees = issues
-    .map((issue) => issue.assignee)
-    .filter(
-      (item, index, self) => index === self.findIndex((t) => t.id === item.id)
-    );
+  const {
+    loading: usersLoading,
+    fn: fetchUsers,
+    data: users,
+  } = useFetch(getOrganizationUsers);
+
+  const {
+    control,
+    register,
+    handleSubmit,
+    formState: { errors },
+    reset,
+  } = useForm({
+    resolver: zodResolver(issueSchema),
+    defaultValues: {
+      priority: "MEDIUM",
+      description: "",
+      assigneeId: "",
+    },
+  });
 
   useEffect(() => {
-    const filteredIssues = issues.filter(
-      (issue) =>
-        issue.title.toLowerCase().includes(searchTerm.toLowerCase()) &&
-        (selectedAssignees.length === 0 ||
-          selectedAssignees.includes(issue.assignee?.id)) &&
-        (selectedPriority === "" || issue.priority === selectedPriority)
-    );
-    onFilterChange(filteredIssues);
-  }, [searchTerm, selectedAssignees, selectedPriority, issues]);
+    if (isOpen && orgId) {
+      fetchUsers(orgId);
+    }
+  }, [isOpen, orgId, fetchUsers]);
 
-  const toggleAssignee = (assigneeId) => {
-    setSelectedAssignees((prev) =>
-      prev.includes(assigneeId)
-        ? prev.filter((id) => id !== assigneeId)
-        : [...prev, assigneeId]
-    );
+  interface FormData {
+    title: string;
+    assigneeId: string;
+    description?: string;
+    priority: string;
+  }
+
+  const onSubmit = async (data: FormData) => {
+    await createIssueFn(projectId, {
+      ...data,
+      status,
+      sprintId,
+    });
   };
 
-  const clearFilters = () => {
-    setSearchTerm("");
-    setSelectedAssignees([]);
-    setSelectedPriority("");
-  };
-
-  const isFiltersApplied =
-    searchTerm !== "" ||
-    selectedAssignees.length > 0 ||
-    selectedPriority !== "";
+  useEffect(() => {
+    if (newIssue) {
+      reset();
+      onClose();
+      onIssueCreated();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [newIssue, createIssueLoading]);
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col pr-2 sm:flex-row gap-4 sm:gap-6 mt-6">
-        <Input
-          className="w-full sm:w-72"
-          placeholder="Search issues..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
-
-        <div className="flex-shrink-0">
-          <div className="flex gap-2 flex-wrap">
-            {assignees.map((assignee, i) => {
-              const selected = selectedAssignees.includes(assignee.id);
-
-              return (
-                <div
-                  key={assignee.id}
-                  className={`rounded-full ring ${
-                    selected ? "ring-blue-600" : "ring-black"
-                  } ${i > 0 ? "-ml-6" : ""}`}
-                  style={{
-                    zIndex: i,
-                  }}
-                  onClick={() => toggleAssignee(assignee.id)}
-                >
-                  <Avatar className="h-10 w-10">
-                    <AvatarImage src={assignee.imageUrl} />
-                    <AvatarFallback>{assignee.name[0]}</AvatarFallback>
-                  </Avatar>
-                </div>
-              );
-            })}
+    <Drawer open={isOpen} onClose={onClose}>
+      <DrawerContent>
+        <DrawerHeader>
+          <DrawerTitle>Create New Issue</DrawerTitle>
+        </DrawerHeader>
+        {usersLoading && <BarLoader width={"100%"} color="#36d7b7" />}
+        <form onSubmit={handleSubmit(onSubmit)} className="p-4 space-y-4">
+          <div>
+            <label htmlFor="title" className="block text-sm font-medium mb-1">
+              Title
+            </label>
+            <Input id="title" {...register("title")} />
+            {errors.title && (
+              <p className="text-red-500 text-sm mt-1">
+                {errors.title.message}
+              </p>
+            )}
           </div>
-        </div>
 
-        <Select value={selectedPriority} onValueChange={setSelectedPriority}>
-          <SelectTrigger className="w-full sm:w-52">
-            <SelectValue placeholder="Select priority" />
-          </SelectTrigger>
-          <SelectContent>
-            {priorities.map((priority) => (
-              <SelectItem key={priority} value={priority}>
-                {priority}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          <div>
+            <label
+              htmlFor="assigneeId"
+              className="block text-sm font-medium mb-1"
+            >
+              Assignee
+            </label>
+            <Controller
+              name="assigneeId"
+              control={control}
+              render={({ field }) => (
+                <Select
+                  onValueChange={field.onChange}
+                  defaultValue={field.value}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select assignee" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {users?.map((user) => (
+                      <SelectItem key={user.id} value={user.id}>
+                        {user?.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+            {errors.assigneeId && (
+              <p className="text-red-500 text-sm mt-1">
+                {errors.assigneeId.message}
+              </p>
+            )}
+          </div>
 
-        {isFiltersApplied && (
+          <div>
+            <label
+              htmlFor="description"
+              className="block text-sm font-medium mb-1"
+            >
+              Description
+            </label>
+            <Controller
+              name="description"
+              control={control}
+              render={({ field }) => (
+                <MDEditor value={field.value} onChange={field.onChange} />
+              )}
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="priority"
+              className="block text-sm font-medium mb-1"
+            >
+              Priority
+            </label>
+            <Controller
+              name="priority"
+              control={control}
+              render={({ field }) => (
+                <Select
+                  onValueChange={field.onChange}
+                  defaultValue={field.value}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select priority" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="LOW">Low</SelectItem>
+                    <SelectItem value="MEDIUM">Medium</SelectItem>
+                    <SelectItem value="HIGH">High</SelectItem>
+                    <SelectItem value="URGENT">Urgent</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+            />
+          </div>
+
+          {error && <p className="text-red-500 mt-2">{error.message}</p>}
           <Button
-            variant="ghost"
-            onClick={clearFilters}
-            className="flex items-center"
+            type="submit"
+            disabled={createIssueLoading ?? false}
+            className="w-full"
           >
-            <X className="mr-2 h-4 w-4" /> Clear Filters
+            {createIssueLoading ? "Creating..." : "Create Issue"}
           </Button>
-        )}
-      </div>
-    </div>
+        </form>
+      </DrawerContent>
+    </Drawer>
   );
 }

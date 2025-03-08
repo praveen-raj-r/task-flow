@@ -1,217 +1,186 @@
 "use client";
 
-import { useEffect } from "react";
-import { BarLoader } from "react-spinners";
+import { useState } from "react";
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Card, CardContent } from "@/components/ui/card";
+
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import {
-  Drawer,
-  DrawerContent,
-  DrawerHeader,
-  DrawerTitle,
-} from "@/components/ui/drawer";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import MDEditor from "@uiw/react-md-editor";
-import useFetch from "@/hooks/use-fetch";
-import { createIssue } from "@/actions/issues";
-import { getOrganizationUsers } from "@/actions/organization";
-import { issueSchema } from "@/app/lib/validators";
+import { useRouter } from "next/navigation";
+import { CalendarIcon } from "lucide-react";
+import { DayPicker } from "react-day-picker";
+import { format, addDays } from "date-fns";
 
-interface IssueCreationDrawerProps {
-  isOpen: boolean;
-  onClose: () => void;
-  sprintId: string;
-  status: string;
+import { sprintSchema } from "@/app/lib/validators";
+import useFetch from "@/hooks/use-fetch";
+import { createSprint } from "@/actions/sprints";
+
+interface SprintCreationFormProps {
+  projectTitle: string;
+  projectKey: string;
   projectId: string;
-  onIssueCreated: () => void;
-  orgId: string;
+  sprintKey: string;
 }
 
-export default function IssueCreationDrawer({
-  isOpen,
-  onClose,
-  sprintId,
-  status,
+export default function SprintCreationForm({
+  projectTitle,
+  projectKey,
   projectId,
-  onIssueCreated,
-  orgId,
-}: IssueCreationDrawerProps) {
-  const {
-    loading: createIssueLoading,
-    fn: createIssueFn,
-    error,
-    data: newIssue,
-  } = useFetch(createIssue);
+  sprintKey,
+}: SprintCreationFormProps) {
+  const [showForm, setShowForm] = useState(false);
+  const [dateRange, setDateRange] = useState({
+    from: new Date(),
+    to: addDays(new Date(), 14),
+  });
+  const router = useRouter();
+
+  const { loading: createSprintLoading, fn: createSprintFn } =
+    useFetch(createSprint);
 
   const {
-    loading: usersLoading,
-    fn: fetchUsers,
-    data: users,
-  } = useFetch(getOrganizationUsers);
-
-  const {
-    control,
     register,
+    control,
     handleSubmit,
+    setValue,
     formState: { errors },
-    reset,
   } = useForm({
-    resolver: zodResolver(issueSchema),
+    resolver: zodResolver(sprintSchema),
     defaultValues: {
-      priority: "MEDIUM",
-      description: "",
-      assigneeId: "",
+      name: `${projectKey}-${sprintKey}`,
+      startDate: dateRange.from,
+      endDate: dateRange.to,
     },
   });
 
-  useEffect(() => {
-    if (isOpen && orgId) {
-      fetchUsers(orgId);
-    }
-  }, [isOpen, orgId, fetchUsers]);
-
+  // Update FormData interface
   interface FormData {
-    title: string;
-    assigneeId: string;
-    description?: string;
-    priority: string;
+    name: string;
+    startDate: Date;
+    endDate: Date;
   }
 
   const onSubmit = async (data: FormData) => {
-    await createIssueFn(projectId, {
+    await createSprintFn(projectId, {
       ...data,
-      status,
-      sprintId,
+      startDate: dateRange.from, // Ensuring correct start date
+      endDate: dateRange.to, // Ensuring correct end date
     });
+    setShowForm(false);
+    router.refresh();
   };
 
-  useEffect(() => {
-    if (newIssue) {
-      reset();
-      onClose();
-      onIssueCreated();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [newIssue, createIssueLoading]);
-
   return (
-    <Drawer open={isOpen} onClose={onClose}>
-      <DrawerContent>
-        <DrawerHeader>
-          <DrawerTitle>Create New Issue</DrawerTitle>
-        </DrawerHeader>
-        {usersLoading && <BarLoader width={"100%"} color="#36d7b7" />}
-        <form onSubmit={handleSubmit(onSubmit)} className="p-4 space-y-4">
-          <div>
-            <label htmlFor="title" className="block text-sm font-medium mb-1">
-              Title
-            </label>
-            <Input id="title" {...register("title")} />
-            {errors.title && (
-              <p className="text-red-500 text-sm mt-1">
-                {errors.title.message}
-              </p>
-            )}
-          </div>
-
-          <div>
-            <label
-              htmlFor="assigneeId"
-              className="block text-sm font-medium mb-1"
+    <>
+      <div className="flex justify-between">
+        <h1 className="text-5xl font-bold mb-8 gradient-title">
+          {projectTitle}
+        </h1>
+        <Button
+          className="mt-2"
+          onClick={() => setShowForm(!showForm)}
+          variant={!showForm ? "default" : "destructive"}
+        >
+          {!showForm ? "Create New Sprint" : "Cancel"}
+        </Button>
+      </div>
+      {showForm && (
+        <Card className="pt-4 mb-4">
+          <CardContent>
+            <form
+              onSubmit={handleSubmit(onSubmit)}
+              className="flex gap-4 items-end"
             >
-              Assignee
-            </label>
-            <Controller
-              name="assigneeId"
-              control={control}
-              render={({ field }) => (
-                <Select
-                  onValueChange={field.onChange}
-                  defaultValue={field.value}
+              <div className="flex-1">
+                <label
+                  htmlFor="name"
+                  className="block text-sm font-medium mb-1"
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select assignee" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {users?.map((user) => (
-                      <SelectItem key={user.id} value={user.id}>
-                        {user?.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
-            {errors.assigneeId && (
-              <p className="text-red-500 text-sm mt-1">
-                {errors.assigneeId.message}
-              </p>
-            )}
-          </div>
+                  Sprint Name
+                </label>
+                <Input
+                  id="name"
+                  {...register("name")}
+                  readOnly
+                  className="bg-slate-950"
+                />
+                {errors.name && (
+                  <p className="text-red-500 text-sm mt-1">
+                    {errors.name.message}
+                  </p>
+                )}
+              </div>
+              <div className="flex-1">
+                <label className="block text-sm font-medium mb-1">
+                  Sprint Duration
+                </label>
+                <Controller
+                  control={control}
+                  name="startDate"
+                  render={() => (
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={`w-full justify-start text-left font-normal bg-slate-950 ${
+                            !dateRange && "text-muted-foreground"
+                          }`}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {dateRange.from && dateRange.to ? (
+                            format(dateRange.from, "LLL dd, y") +
+                            " - " +
+                            format(dateRange.to, "LLL dd, y")
+                          ) : (
+                            <span>Pick a date</span>
+                          )}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent
+                        className="w-auto bg-slate-900"
+                        align="start"
+                      >
+                        <DayPicker
+                          classNames={{
+                            chevron: "fill-blue-500",
+                            range_start: "bg-blue-700",
+                            range_end: "bg-blue-700",
+                            range_middle: "bg-blue-400",
+                            day_button: "border-none",
+                            today: "border-2 border-blue-700",
+                          }}
+                          mode="range"
+                          disabled={[{ before: new Date() }]}
+                          selected={dateRange}
+                          onSelect={(range) => {
+                            setDateRange({
+                              from: range?.from ?? dateRange.from, // Keep existing value if undefined
+                              to: range?.to ?? dateRange.to,
+                            });
 
-          <div>
-            <label
-              htmlFor="description"
-              className="block text-sm font-medium mb-1"
-            >
-              Description
-            </label>
-            <Controller
-              name="description"
-              control={control}
-              render={({ field }) => (
-                <MDEditor value={field.value} onChange={field.onChange} />
-              )}
-            />
-          </div>
-
-          <div>
-            <label
-              htmlFor="priority"
-              className="block text-sm font-medium mb-1"
-            >
-              Priority
-            </label>
-            <Controller
-              name="priority"
-              control={control}
-              render={({ field }) => (
-                <Select
-                  onValueChange={field.onChange}
-                  defaultValue={field.value}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select priority" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="LOW">Low</SelectItem>
-                    <SelectItem value="MEDIUM">Medium</SelectItem>
-                    <SelectItem value="HIGH">High</SelectItem>
-                    <SelectItem value="URGENT">Urgent</SelectItem>
-                  </SelectContent>
-                </Select>
-              )}
-            />
-          </div>
-
-          {error && <p className="text-red-500 mt-2">{error.message}</p>}
-          <Button
-            type="submit"
-            disabled={createIssueLoading ?? false}
-            className="w-full"
-          >
-            {createIssueLoading ? "Creating..." : "Create Issue"}
-          </Button>
-        </form>
-      </DrawerContent>
-    </Drawer>
+                            if (range?.from) setValue("startDate", range.from); // ✅ Correct usage of setValue
+                            if (range?.to) setValue("endDate", range.to); // ✅ Correct usage of setValue
+                          }}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  )}
+                />
+              </div>
+              <Button type="submit" disabled={!!createSprintLoading}>
+                {createSprintLoading ? "Creating..." : "Create Sprint"}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      )}
+    </>
   );
 }

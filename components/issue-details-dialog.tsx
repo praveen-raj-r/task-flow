@@ -23,10 +23,37 @@ import { BarLoader } from "react-spinners";
 import { ExternalLink } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 
-import statuses from "@/data/status";
+import statuses from "@/data/status.json";
 import { deleteIssue, updateIssue } from "@/actions/issues";
 
 const priorityOptions = ["LOW", "MEDIUM", "HIGH", "URGENT"];
+
+interface User {
+  id: string;
+  name: string | null;
+  clerkUserId: string;
+}
+
+interface Issue {
+  id: string;
+  title: string;
+  description?: string;
+  status: string;
+  priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+  assignee: User;
+  reporter: User;
+  projectId: string;
+  sprintId?: string;
+}
+
+interface IssueDetailsDialogProps {
+  isOpen: boolean;
+  onClose: () => void;
+  issue: Issue;
+  onDelete?: () => void;
+  onUpdate?: (updatedIssue: Issue) => void;
+  borderCol?: string;
+}
 
 export default function IssueDetailsDialog({
   isOpen,
@@ -35,7 +62,7 @@ export default function IssueDetailsDialog({
   onDelete = () => {},
   onUpdate = () => {},
   borderCol = "",
-}) {
+}: IssueDetailsDialogProps) {
   const [status, setStatus] = useState(issue.status);
   const [priority, setPriority] = useState(issue.priority);
   const { user } = useUser();
@@ -63,12 +90,14 @@ export default function IssueDetailsDialog({
     }
   };
 
-  const handleStatusChange = async (newStatus) => {
+  const handleStatusChange = async (newStatus: string) => {
     setStatus(newStatus);
     updateIssueFn(issue.id, { status: newStatus, priority });
   };
 
-  const handlePriorityChange = async (newPriority) => {
+  const handlePriorityChange = async (
+    newPriority: "LOW" | "MEDIUM" | "HIGH" | "URGENT"
+  ) => {
     setPriority(newPriority);
     updateIssueFn(issue.id, { status, priority: newPriority });
   };
@@ -79,12 +108,28 @@ export default function IssueDetailsDialog({
       onDelete();
     }
     if (updated) {
-      onUpdate(updated);
+      onUpdate({
+        ...updated,
+        description: updated.description ?? undefined, // Convert null to undefined
+        assignee: updated.assignee ?? issue.assignee,
+        reporter: updated.reporter ?? issue.reporter,
+        sprintId: updated.sprintId ?? undefined,
+      });
     }
-  }, [deleted, updated, deleteLoading, updateLoading]);
+  }, [
+    deleted,
+    updated,
+    deleteLoading,
+    updateLoading,
+    issue.assignee,
+    issue.reporter,
+    onClose,
+    onDelete,
+    onUpdate,
+  ]);
 
   const canChange =
-    user.id === issue.reporter.clerkUserId || membership.role === "org:admin";
+    user?.id === issue.reporter.clerkUserId || membership?.role === "org:admin";
 
   const handleGoToProject = () => {
     router.push(`/project/${issue.projectId}?sprint=${issue.sprintId}`);
@@ -164,7 +209,7 @@ export default function IssueDetailsDialog({
           {canChange && (
             <Button
               onClick={handleDelete}
-              disabled={deleteLoading}
+              disabled={!!deleteLoading}
               variant="destructive"
             >
               {deleteLoading ? "Deleting..." : "Delete Issue"}

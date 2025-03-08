@@ -19,8 +19,20 @@ interface Issue {
   title: string;
   status: string;
   priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
-  assignee: { name: string; avatarUrl: string };
+  assignee: {
+    id: string;
+    clerkUserId: string;
+    name: string;
+    avatarUrl: string;
+  };
   createdAt: string;
+  reporter: {
+    id: string;
+    clerkUserId: string;
+    name: string;
+    avatarUrl: string;
+  }; // Change from string to User object
+  projectId: string;
 }
 
 interface IssueCardProps {

@@ -14,7 +14,23 @@ import IssueDetailsDialog from "./issue-details-dialog";
 import UserAvatar from "./user-avatar";
 import { useRouter } from "next/navigation";
 
-const priorityColor = {
+interface Issue {
+  id: string;
+  title: string;
+  status: string;
+  priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+  assignee: { name: string; avatarUrl: string };
+  createdAt: string;
+}
+
+interface IssueCardProps {
+  issue: Issue;
+  showStatus?: boolean;
+  onDelete?: (id: string) => void;
+  onUpdate?: (issue: Issue) => void;
+}
+
+const priorityColor: Record<Issue["priority"], string> = {
   LOW: "border-green-600",
   MEDIUM: "border-yellow-300",
   HIGH: "border-orange-400",
@@ -24,25 +40,27 @@ const priorityColor = {
 export default function IssueCard({
   issue,
   showStatus = false,
-  onDelete = () => {},
-  onUpdate = () => {},
-}) {
+  onDelete = () => {}, // Fixed default function
+  onUpdate = () => {}, // Fixed default function
+}: IssueCardProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const router = useRouter();
 
-  const onDeleteHandler = (...params) => {
+  const onDeleteHandler = (id: string) => {
     router.refresh();
-    onDelete(...params);
+    onDelete(id);
   };
 
-  const onUpdateHandler = (...params) => {
+  const onUpdateHandler = (updatedIssue: Issue) => {
     router.refresh();
-    onUpdate(...params);
+    onUpdate(updatedIssue);
   };
 
   const created = formatDistanceToNow(new Date(issue.createdAt), {
     addSuffix: true,
   });
+
+  const borderColor = priorityColor[issue.priority];
 
   return (
     <>
@@ -50,9 +68,7 @@ export default function IssueCard({
         className="cursor-pointer hover:shadow-md transition-shadow"
         onClick={() => setIsDialogOpen(true)}
       >
-        <CardHeader
-          className={`border-t-2 ${priorityColor[issue.priority]} rounded-lg`}
-        >
+        <CardHeader className={`border-t-2 ${borderColor} rounded-lg`}>
           <CardTitle>{issue.title}</CardTitle>
         </CardHeader>
 
@@ -64,7 +80,6 @@ export default function IssueCard({
         </CardContent>
         <CardFooter className="flex flex-col items-start space-y-3">
           <UserAvatar user={issue.assignee} />
-
           <div className="text-xs text-gray-400 w-full">Created {created}</div>
         </CardFooter>
       </Card>
@@ -74,9 +89,9 @@ export default function IssueCard({
           isOpen={isDialogOpen}
           onClose={() => setIsDialogOpen(false)}
           issue={issue}
-          onDelete={onDeleteHandler}
-          onUpdate={onUpdateHandler}
-          borderCol={priorityColor[issue.priority]}
+          onDelete={() => onDeleteHandler(issue.id)} // Wrap with an arrow function
+          onUpdate={() => onUpdateHandler(issue)}
+          borderCol={borderColor}
         />
       )}
     </>

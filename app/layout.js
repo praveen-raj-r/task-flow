@@ -10,8 +10,9 @@ import { Toaster } from "sonner";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata = {
-  title: "Jira Clone",
-  description: "",
+  title: "Task Flow",
+  description:
+    "A powerful task management app designed for seamless workflow automation. Organize tasks, set priorities, track progress, and collaborate efficiently. Boost productivity with an intuitive and user-friendly interface.",
 };
 
 export default function RootLayout({ children }) {
@@ -41,7 +42,15 @@ export default function RootLayout({ children }) {
             <Toaster richColors />
             <footer className="bg-gray-900 py-12">
               <div className="container mx-auto px-4 text-center text-gray-200">
-                <p>Made with 💗 by RoadsideCoder</p>
+                <p>
+                  Made with 💗 by{" "}
+                  <a
+                    className=""
+                    href="https://www.linkedin.com/in/developer-praveen-raj/"
+                  >
+                    Praveen raj
+                  </a>
+                </p>
               </div>
             </footer>
           </ThemeProvider>
